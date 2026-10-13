@@ -1,21 +1,11 @@
-import Navbar from './components/Navbar'
-import Hero from './components/Hero'
-import About from './components/About'
-import Skills from './components/Skills'
+import HomePage from "./pages/HomePage";
 
 function App() {
   return (
-    <div className="min-h-screen bg-[#0b0b0e]">
-      <Navbar />
-
-      <main>
-        <Hero />
-        <About />
-        <Skills />
-
-      </main>
+    <div className="min-h-screen bg-[#080B09] text-[#F0F3EF]">
+      <HomePage />
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
