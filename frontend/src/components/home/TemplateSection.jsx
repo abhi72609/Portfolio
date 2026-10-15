@@ -10,9 +10,11 @@ function TemplateSection() {
       <div className="section-container">
         <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div className="max-w-2xl">
-            <p className="section-eyebrow">Find your style</p>
+            <p className="section-eyebrow text-sm font-extrabold uppercase tracking-[0.25em]">
+              Find your style
+            </p>
 
-            <h2 className="section-heading mt-5">
+            <h2 className="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-[var(--color-text)] sm:text-5xl lg:text-6xl">
               One story.
               <span className="text-accent block">
                 Five ways to tell it.

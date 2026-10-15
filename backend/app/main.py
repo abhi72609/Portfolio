@@ -1,39 +1,78 @@
-
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import Depends, FastAPI, HTTPException, status
+from jwt.exceptions import PyJWTError
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pwdlib import PasswordHash
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal, settings
-from app.models import User
-from app.schemas import UserCreate, UserLogin, UserResponse
+from app.database import Base, SessionLocal, engine, settings
+from app.models import User, Project
+from app.schemas import (
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    ProjectCreate,
+    ProjectUpdate,
+    ProjectResponse,
+)
 
 
-app = FastAPI(title="Portfolia API")
+# --------------------------------------------------
+# Application configuration
+# --------------------------------------------------
 
 password_hash = PasswordHash.recommended()
 
-# JWT configuration
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+bearer_scheme = HTTPBearer(auto_error=False)
 
-# Allow the React frontend to communicate with this backend.
+
+# --------------------------------------------------
+# Database initialization
+# --------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Importing User and Project above registers both models
+    # with Base.metadata before the tables are created.
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(
+    title="Portfolia API",
+    lifespan=lifespan,
+)
+
+
+# --------------------------------------------------
+# CORS configuration
+# --------------------------------------------------
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# Provide a database session for each request.
+# --------------------------------------------------
+# Database session dependency
+# --------------------------------------------------
+
 def get_db():
     db = SessionLocal()
     try:
@@ -42,7 +81,10 @@ def get_db():
         db.close()
 
 
-# Generate a JWT access token for an authenticated user.
+# --------------------------------------------------
+# JWT authentication
+# --------------------------------------------------
+
 def create_access_token(user_id: int) -> str:
     expires_at = datetime.now(timezone.utc) + timedelta(
         minutes=ACCESS_TOKEN_EXPIRE_MINUTES
@@ -53,8 +95,61 @@ def create_access_token(user_id: int) -> str:
         "exp": expires_at,
     }
 
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(
+        payload,
+        SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
 
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(
+        bearer_scheme
+    ),
+    db: Session = Depends(get_db),
+) -> User:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Please log in to continue.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+
+        subject = payload.get("sub")
+
+        if subject is None:
+            raise ValueError("Missing token subject.")
+
+        user_id = int(subject)
+
+    except (PyJWTError, ValueError, TypeError, KeyError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your session is invalid or expired. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = db.get(User, user_id)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account not found.",
+        )
+
+    return user
+
+
+# --------------------------------------------------
+# General endpoints
+# --------------------------------------------------
 
 @app.get("/")
 def home():
@@ -66,12 +161,19 @@ def health_check():
     return {"status": "ok"}
 
 
+# --------------------------------------------------
+# Authentication: signup
+# --------------------------------------------------
+
 @app.post(
     "/api/auth/signup",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def signup(user_data: UserCreate, db: Session = Depends(get_db)):
+def signup(
+    user_data: UserCreate,
+    db: Session = Depends(get_db),
+):
     email = str(user_data.email).lower()
 
     existing_user = db.scalar(
@@ -87,13 +189,16 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     new_user = User(
         full_name=user_data.full_name.strip(),
         email=email,
-        hashed_password=password_hash.hash(user_data.password),
+        hashed_password=password_hash.hash(
+            user_data.password
+        ),
     )
 
     try:
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
+
     except Exception:
         db.rollback()
         raise HTTPException(
@@ -104,8 +209,15 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 
+# --------------------------------------------------
+# Authentication: login
+# --------------------------------------------------
+
 @app.post("/api/auth/login")
-def login(user_data: UserLogin, db: Session = Depends(get_db)):
+def login(
+    user_data: UserLogin,
+    db: Session = Depends(get_db),
+):
     email = str(user_data.email).lower()
 
     user = db.scalar(
@@ -113,7 +225,8 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
     )
 
     if not user or not password_hash.verify(
-        user_data.password, user.hashed_password
+        user_data.password,
+        user.hashed_password,
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -126,5 +239,146 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": UserResponse.model_validate(user).model_dump(mode="json"),
+        "user": UserResponse.model_validate(user).model_dump(
+            mode="json"
+        ),
     }
+
+
+# --------------------------------------------------
+# Projects: list authenticated user's projects
+# --------------------------------------------------
+
+@app.get(
+    "/api/projects",
+    response_model=list[ProjectResponse],
+)
+def list_projects(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    projects = db.scalars(
+        select(Project)
+        .where(Project.user_id == current_user.id)
+        .order_by(Project.created_at.desc())
+    ).all()
+
+    return projects
+
+
+# --------------------------------------------------
+# Projects: create
+# --------------------------------------------------
+
+@app.post(
+    "/api/projects",
+    response_model=ProjectResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_project(
+    project_data: ProjectCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = Project(
+        **project_data.model_dump(),
+        user_id=current_user.id,
+    )
+
+    try:
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not save the project.",
+        )
+
+    return project
+
+
+# --------------------------------------------------
+# Projects: update
+# --------------------------------------------------
+
+@app.put(
+    "/api/projects/{project_id}",
+    response_model=ProjectResponse,
+)
+def update_project(
+    project_id: int,
+    project_data: ProjectUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = db.scalar(
+        select(Project).where(
+            Project.id == project_id,
+            Project.user_id == current_user.id,
+        )
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found.",
+        )
+
+    for field, value in project_data.model_dump().items():
+        setattr(project, field, value)
+
+    try:
+        db.commit()
+        db.refresh(project)
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not update the project.",
+        )
+
+    return project
+
+
+# --------------------------------------------------
+# Projects: delete
+# --------------------------------------------------
+
+@app.delete(
+    "/api/projects/{project_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = db.scalar(
+        select(Project).where(
+            Project.id == project_id,
+            Project.user_id == current_user.id,
+        )
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found.",
+        )
+
+    try:
+        db.delete(project)
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not delete the project.",
+        )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

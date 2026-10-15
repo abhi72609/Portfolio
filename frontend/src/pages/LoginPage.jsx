@@ -29,7 +29,7 @@ function LoginPage() {
       sessionStorage.setItem("user", JSON.stringify(data.user));
 
       // Navigate to the portfolio creation page after login.
-      navigate("/create-portfolio");
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(
         err.message || "Unable to sign in. Please try again."

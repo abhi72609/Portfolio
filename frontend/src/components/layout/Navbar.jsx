@@ -1,7 +1,8 @@
 import Logo from "../common/Logo";
 
 const navLinks = [
-  { label: "Features", href: "#features" },
+  { label: "Home", href: "#Home" },
+  { label: "Features", href: "#how-it-works" },
   { label: "Templates", href: "#templates" },
   { label: "About", href: "#about" },
 ];
