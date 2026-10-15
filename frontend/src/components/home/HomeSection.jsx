@@ -1,6 +1,6 @@
-function HeroSection() {
+function HomeSection() {
   return (
-    <section className="relative isolate flex min-h-[88vh] items-center overflow-hidden bg-[#050605] px-6 py-24">
+    <section id="Home" className="relative isolate flex min-h-[88vh] items-center overflow-hidden bg-[#050605] px-6 py-24">
       {/* Background effects */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute right-[-10%] top-[-15%] h-[450px] w-[450px] rounded-full bg-[#1B4332]/20 blur-[120px]" />
@@ -181,4 +181,4 @@ function HeroSection() {
   );
 }
 
-export default HeroSection;
+export default HomeSection;

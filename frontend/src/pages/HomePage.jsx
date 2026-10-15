@@ -2,11 +2,11 @@
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 
-import HeroSection from "../components/home/HeroSection";
+import HomeSection from "../components/home/HomeSection";
 import TemplateSection from "../components/home/TemplateSection";
 import FeaturesSection from "../components/home/FeaturesSection";
 import About from "../components/home/About";
-import CTASection from "../components/home/CTASection";
+// import CTASection from "../components/home/CTASection";
 
 function HomePage() {
   return (
@@ -14,11 +14,11 @@ function HomePage() {
       <Navbar />
 
       <main>
-        <HeroSection />
-        <TemplateSection />
+        <HomeSection />
         <FeaturesSection />
+        <TemplateSection />
         <About />
-        <CTASection />
+        {/* <CTASection /> */}
       </main>
 
       <Footer />

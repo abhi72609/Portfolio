@@ -1,6 +1,9 @@
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+# --------------------------------------------------
+# User schemas
+# --------------------------------------------------
 
 class UserCreate(BaseModel):
     full_name: str = Field(min_length=2, max_length=100)
@@ -17,5 +20,35 @@ class UserResponse(BaseModel):
     id: int
     full_name: str
     email: EmailStr
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --------------------------------------------------
+# Project schemas
+# --------------------------------------------------
+
+class ProjectBase(BaseModel):
+    title: str = Field(min_length=1, max_length=150)
+    description: str = Field(min_length=1, max_length=5000)
+
+    technologies: list[str] = Field(default_factory=list, max_length=30)
+
+    github_url: HttpUrl | None = None
+    live_url: HttpUrl | None = None
+    image_url: str | None = Field(default=None, max_length=2048)
+
+
+class ProjectCreate(ProjectBase):
+    pass
+
+
+class ProjectUpdate(ProjectBase):
+    pass
+
+
+class ProjectResponse(ProjectBase):
+    id: int
+    user_id: int
 
     model_config = ConfigDict(from_attributes=True)
