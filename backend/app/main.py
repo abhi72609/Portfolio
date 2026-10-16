@@ -1,3 +1,4 @@
+
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
@@ -11,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal, engine, settings
-from app.models import User, Project
+from app.models import User, Project, Portfolio
 from app.schemas import (
     UserCreate,
     UserLogin,
@@ -19,6 +20,8 @@ from app.schemas import (
     ProjectCreate,
     ProjectUpdate,
     ProjectResponse,
+    PortfolioCreate,
+    PortfolioResponse,
 )
 
 
@@ -41,8 +44,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Importing User and Project above registers both models
-    # with Base.metadata before the tables are created.
+    # Importing all models above registers their tables.
     Base.metadata.create_all(bind=engine)
     yield
 
@@ -199,12 +201,13 @@ def signup(
         db.commit()
         db.refresh(new_user)
 
-    except Exception:
+    except Exception as exc:
         db.rollback()
+        print("SIGNUP ERROR:", repr(exc))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not create your account.",
-        )
+        ) from exc
 
     return new_user
 
@@ -280,8 +283,10 @@ def create_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    project_values = project_data.model_dump(mode="json")
+
     project = Project(
-        **project_data.model_dump(),
+        **project_values,
         user_id=current_user.id,
     )
 
@@ -290,12 +295,13 @@ def create_project(
         db.commit()
         db.refresh(project)
 
-    except Exception:
+    except Exception as exc:
         db.rollback()
+        print("PROJECT SAVE ERROR:", repr(exc))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not save the project.",
-        )
+        ) from exc
 
     return project
 
@@ -327,19 +333,22 @@ def update_project(
             detail="Project not found.",
         )
 
-    for field, value in project_data.model_dump().items():
+    project_values = project_data.model_dump(mode="json")
+
+    for field, value in project_values.items():
         setattr(project, field, value)
 
     try:
         db.commit()
         db.refresh(project)
 
-    except Exception:
+    except Exception as exc:
         db.rollback()
+        print("PROJECT UPDATE ERROR:", repr(exc))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not update the project.",
-        )
+        ) from exc
 
     return project
 
@@ -374,11 +383,93 @@ def delete_project(
         db.delete(project)
         db.commit()
 
-    except Exception:
+    except Exception as exc:
         db.rollback()
+        print("PROJECT DELETE ERROR:", repr(exc))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not delete the project.",
-        )
+        ) from exc
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --------------------------------------------------
+# Portfolio: retrieve logged-in user's portfolio
+# --------------------------------------------------
+
+@app.get(
+    "/api/portfolio/me",
+    response_model=PortfolioResponse,
+)
+def get_my_portfolio(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    portfolio = db.scalar(
+        select(Portfolio).where(
+            Portfolio.user_id == current_user.id
+        )
+    )
+
+    if portfolio is not None:
+        return portfolio
+
+    # Return a default portfolio without creating a database row.
+    return {
+        "template": "minimal",
+        "portfolio_data": {
+            "name": current_user.full_name,
+            "role": "",
+            "about": "",
+            "projects": [],
+            "education": [],
+            "experience": [],
+            "skills": [],
+        },
+    }
+
+
+# --------------------------------------------------
+# Portfolio: create or update logged-in user's portfolio
+# --------------------------------------------------
+
+@app.put(
+    "/api/portfolio/me",
+    response_model=PortfolioResponse,
+)
+def save_my_portfolio(
+    portfolio_input: PortfolioCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    portfolio = db.scalar(
+        select(Portfolio).where(
+            Portfolio.user_id == current_user.id
+        )
+    )
+
+    if portfolio is None:
+        portfolio = Portfolio(
+            user_id=current_user.id,
+            template=portfolio_input.template,
+            portfolio_data=portfolio_input.portfolio_data,
+        )
+        db.add(portfolio)
+    else:
+        portfolio.template = portfolio_input.template
+        portfolio.portfolio_data = portfolio_input.portfolio_data
+
+    try:
+        db.commit()
+        db.refresh(portfolio)
+
+    except Exception as exc:
+        db.rollback()
+        print("PORTFOLIO SAVE ERROR:", repr(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not save your portfolio.",
+        ) from exc
+
+    return portfolio
