@@ -46,14 +46,21 @@ function DarkTemplate({ data = {} }) {
             Available for opportunities
           </div>
 
-          <p className="mb-5 text-sm font-medium text-[#A4B0A8]">
-            Hello, I'm {name}
-          </p>
+          <div className="mb-5">
+            <p className="text-sm font-medium text-[#A4B0A8]">
+              Hello, I'm {name}
+            </p>
+            <p className="mt-2 text-base font-semibold text-[#8AFFC1]">
+              {role}
+            </p>
+          </div>
 
           <h1 className="max-w-5xl text-5xl font-black leading-[1.05] tracking-tight sm:text-7xl lg:text-8xl">
             Building digital
             <br />
-            <span className="text-[#00E68A]">things that matter.</span>
+            <span className="text-[#00E68A]">
+              things that matter.
+            </span>
           </h1>
 
           <p className="mt-8 max-w-2xl text-lg leading-8 text-[#A4B0A8]">
