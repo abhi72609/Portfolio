@@ -36,6 +36,20 @@ function CreatePortfolioPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const requestedStep = searchParams.get("step");
+
+  const stepIndex = {
+    personal: 0,
+    "personal-information": 0,
+    template: 1,
+    projects: 2,
+    education: 3,
+    experience: 4,
+    skills: 5,
+  };
+
+  const requestedStepIndex = stepIndex[requestedStep];
+
   const requestedTemplate = searchParams.get("template");
   const validRequestedTemplate = templates.some(
     (template) => template.id === requestedTemplate
@@ -47,7 +61,17 @@ function CreatePortfolioPage() {
     validRequestedTemplate || "minimal"
   );
   const [formData, setFormData] = useState(() => emptyPortfolio());
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(
+    requestedStepIndex ?? 0
+  );
+
+  useEffect(() => {
+    if (requestedStepIndex !== undefined) {
+      setCurrentStep(requestedStepIndex);
+      setError("");
+      setNotice("");
+    }
+  }, [requestedStepIndex]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -314,29 +338,39 @@ function CreatePortfolioPage() {
             />
           </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-6">
+
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             {steps.map((step, index) => (
               <button
                 key={step}
                 type="button"
-                onClick={async () => {
-                  if (index <= currentStep) {
-                    const saved = await savePortfolio();
-                    if (saved) setCurrentStep(index);
-                  }
+                onClick={() => {
+                  setCurrentStep(index);
+                  setError("");
+                  setNotice("");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
-                disabled={index > currentStep || saving}
-                className={`rounded-lg px-2 py-2 text-xs transition ${index === currentStep
-                    ? "bg-[#00C875]/15 font-bold text-[#8AFFC1]"
-                    : index < currentStep
-                      ? "text-[#A4B0A8] hover:bg-white/5"
-                      : "cursor-not-allowed text-white/25"
+                disabled={saving}
+                aria-current={currentStep === index ? "step" : undefined}
+                className={`rounded-xl px-3 py-3 text-xs transition sm:text-sm ${currentStep === index
+                  ? "bg-[#00C875]/15 font-bold text-[#8AFFC1] ring-1 ring-[#00C875]/30"
+                  : "text-[#A4B0A8] hover:bg-white/5 hover:text-white"
                   }`}
               >
-                {index + 1}. {step.split(" ")[0]}
+                <span className="block opacity-70">
+                  Step {index + 1}
+                </span>
+                <span className="mt-1 block">
+                  {step === "Personal Information"
+                    ? "Personal"
+                    : step === "Choose Template"
+                      ? "Template"
+                      : step}
+                </span>
               </button>
             ))}
           </div>
+
         </section>
 
         {error && (
@@ -488,8 +522,8 @@ function CreatePortfolioPage() {
                   <label
                     key={template.id}
                     className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${selectedTemplate === template.id
-                        ? "border-[#00C875] bg-[#00C875]/10"
-                        : "border-white/10 hover:border-white/25"
+                      ? "border-[#00C875] bg-[#00C875]/10"
+                      : "border-white/10 hover:border-white/25"
                       }`}
                   >
                     <input

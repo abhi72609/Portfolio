@@ -1,19 +1,41 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+
 
 const navigation = [
   { label: "Dashboard", icon: "▦", path: "/dashboard" },
-  { label: "Edit Portfolio", icon: "▤", path: "/create-portfolio" },
-  { label: "Templates", icon: "▧", path: "/#templates" },
-  { label: "Projects", icon: "▣", path: "/create-portfolio" },
-  { label: "Education", icon: "◇", path: "/create-portfolio" },
-  { label: "Experience", icon: "▱", path: "/create-portfolio" },
-  { label: "Skills", icon: "✳", path: "/create-portfolio" },
-  { label: "Personal Info", icon: "♙", path: "/create-portfolio" },
-  { label: "Appearance", icon: "◐", path: "/create-portfolio" },
-  { label: "Domain & SEO", icon: "◎", path: "/create-portfolio" },
-  { label: "Projects", icon: "▣", path: "/projects" },
+  {
+    label: "Personal Information",
+    icon: "♙",
+    path: "/create-portfolio?step=personal",
+  },
+  {
+    label: "Choose Template",
+    icon: "▧",
+    path: "/create-portfolio?step=template",
+  },
+  {
+    label: "Projects",
+    icon: "▣",
+    path: "/create-portfolio?step=projects",
+  },
+  {
+    label: "Education",
+    icon: "◇",
+    path: "/create-portfolio?step=education",
+  },
+  {
+    label: "Experience",
+    icon: "▱",
+    path: "/create-portfolio?step=experience",
+  },
+  {
+    label: "Skills",
+    icon: "✳",
+    path: "/create-portfolio?step=skills",
+  },
 ];
+
 
 const stats = [
   { label: "Portfolio", value: "1", icon: "▤", color: "text-emerald-400" },
@@ -32,6 +54,7 @@ const checklist = [
 
 function DashboardPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -95,9 +118,8 @@ function DashboardPage() {
       <div className="flex min-h-screen">
         {/* Sidebar */}
         <aside
-          className={`${
-            menuOpen ? "translate-x-0" : "-translate-x-full"
-          } fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/[0.08] bg-[#0A100D] transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0`}
+          className={`${menuOpen ? "translate-x-0" : "-translate-x-full"
+            } fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/[0.08] bg-[#0A100D] transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0`}
         >
           <Link
             to="/dashboard"
@@ -111,23 +133,43 @@ function DashboardPage() {
             </span>
           </Link>
 
+
           <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-5">
-            {navigation.map((item) => (
-              <Link
-                key={item.label}
-                to={item.path}
-                onClick={() => setMenuOpen(false)}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${
-                  item.label === "Dashboard"
-                    ? "bg-emerald-400/15 font-semibold text-[#5AFFB7]"
-                    : "text-gray-400 hover:bg-white/[0.04] hover:text-white"
-                }`}
-              >
-                <span className="w-5 text-center text-lg">{item.icon}</span>
-                {item.label}
-              </Link>
-            ))}
+            {navigation.map((item) => {
+              const stepMap = {
+                "Personal Information": "personal",
+                "Choose Template": "template",
+                Projects: "projects",
+                Education: "education",
+                Experience: "experience",
+                Skills: "skills",
+              };
+
+              const currentStep = new URLSearchParams(location.search).get("step");
+
+              const isActive =
+                item.label === "Dashboard"
+                  ? location.pathname === "/dashboard"
+                  : location.pathname === "/create-portfolio" &&
+                  currentStep === stepMap[item.label];
+
+              return (
+                <Link
+                  key={item.label}
+                  to={item.path}
+                  onClick={() => setMenuOpen(false)}
+                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${isActive
+                      ? "bg-emerald-400/15 font-semibold text-[#5AFFB7]"
+                      : "text-gray-400 hover:bg-white/[0.04] hover:text-white"
+                    }`}
+                >
+                  <span className="w-5 text-center text-lg">{item.icon}</span>
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
+
 
           <div className="shrink-0 border-t border-white/[0.08] p-4">
             <Link
