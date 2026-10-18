@@ -1219,3 +1219,50 @@ nav.navbar,
     transform: none;
   }
 }
+
+
+/* =========================================
+   20. RESPONSIVE PORTFOLIO TEMPLATES
+========================================= */
+
+/* Give portfolio pages more room on large screens */
+body:has(a[href="#minimal-home"]),
+body:has(a[href="#dark-home"]),
+body:has(a[href="#professional-home"]),
+body:has(a[href="#editorial-home"]),
+body:has(a[href="#home"]) {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Keep all portfolio sections responsive */
+body:has(a[href="#minimal-home"]) main,
+body:has(a[href="#dark-home"]) main,
+body:has(a[href="#professional-home"]) main,
+body:has(a[href="#editorial-home"]) main,
+body:has(a[href="#home"]) main {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Improve spacing on very large screens */
+@media (min-width: 1600px) {
+  body:has(a[href="#minimal-home"]) main > section > div,
+  body:has(a[href="#dark-home"]) main > section > div,
+  body:has(a[href="#professional-home"]) main > section > div,
+  body:has(a[href="#editorial-home"]) main > section > div,
+  body:has(a[href="#home"]) main > section > div {
+    max-width: 1440px;
+  }
+}
+
+/* Prevent horizontal overflow on smaller screens */
+@media (max-width: 768px) {
+  body:has(a[href="#minimal-home"]) main,
+  body:has(a[href="#dark-home"]) main,
+  body:has(a[href="#professional-home"]) main,
+  body:has(a[href="#editorial-home"]) main,
+  body:has(a[href="#home"]) main {
+    overflow-x: clip;
+  }
+}
